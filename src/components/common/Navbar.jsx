@@ -104,26 +104,33 @@ export default function Navbar() {
       const itemsMap = new Map();
       DEFAULT_TOURNAMENTS_MENU.forEach(item => itemsMap.set(item.id, item));
 
-      const allDocs = [...catDocs, ...tournDocs];
-      allDocs.forEach(doc => {
+      // Only tournamentCategories docs control what appears in the nav.
+      // Raw tournament docs (sub-tournaments like "BAPL 3.0 - North Mumbai") are ignored here.
+      catDocs.forEach(doc => {
         if (!doc) return;
         if (doc.isDeleted === true || doc.deleted === true) {
-          // Only remove from menu if it's NOT a default item
-          if (!defaultIds.has(doc.id)) {
-            itemsMap.delete(doc.id);
-          }
-        } else {
-          // Include any active/activated doc — category, custom, or standard tournament
-          const isActive = doc.isActivated !== false;
-          if (isActive) {
+          // Remove from nav — even if it's a default item (admin explicitly deleted it)
+          itemsMap.delete(doc.id);
+        } else if (defaultIds.has(doc.id)) {
+          // Default item is still active — keep it (optionally update label/logo from Firestore)
+          const existing = itemsMap.get(doc.id);
+          if (existing) {
             itemsMap.set(doc.id, {
-              id: doc.id,
-              label: doc.label || doc.name,
-              to: doc.to || `/tournaments/${doc.id}`,
-              logo: doc.logo || '/logos/bapllogo.jpg'
+              ...existing,
+              label: doc.label || doc.name || existing.label,
+              logo: doc.logo || existing.logo
             });
           }
+        } else if (doc.isCustom === true) {
+          // Only add non-default items if they're explicitly a custom category
+          itemsMap.set(doc.id, {
+            id: doc.id,
+            label: doc.label || doc.name,
+            to: doc.to || `/tournaments/${doc.id}`,
+            logo: doc.logo || '/logos/bapllogo.jpg'
+          });
         }
+        // All other docs (sub-tournaments, etc.) are ignored from the nav
       });
 
       setTournamentsMenu(Array.from(itemsMap.values()));
@@ -137,10 +144,12 @@ export default function Navbar() {
       });
     } catch (e) {}
 
+    // Still subscribe to tournaments for other potential uses,
+    // but don't include in nav processing
     try {
       unsubTourn = subscribeCollection('tournaments', [], (docs) => {
         tournDocs = docs || [];
-        processMenu();
+        // Do NOT call processMenu here — tournaments don't drive the nav
       });
     } catch (e) {}
 
