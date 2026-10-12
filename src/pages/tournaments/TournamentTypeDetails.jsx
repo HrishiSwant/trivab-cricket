@@ -182,8 +182,8 @@ export default function TournamentTypeDetails() {
         if (!activeTournIds.has(id)) {
           // Not activated / deleted → Inactive
           status = 'Inactive';
-        } else if (dbTourn && dbTourn.status && dbTourn.status !== 'Upcoming') {
-          // Admin explicitly set a status — always respect it
+        } else if (dbTourn && dbTourn.status) {
+          // Admin explicitly set a status — ALWAYS respect it, no override
           status = dbTourn.status;
         } else if (matches.some(m => m.status === 'Live')) {
           status = 'Live';
@@ -192,8 +192,7 @@ export default function TournamentTypeDetails() {
         } else if (matches.length > 0) {
           status = 'Active';
         } else {
-          // Default: use admin-set status (Upcoming) or fall back
-          status = (dbTourn && dbTourn.status) ? dbTourn.status : 'Upcoming';
+          status = 'Upcoming';
         }
 
         statsMap[id] = {

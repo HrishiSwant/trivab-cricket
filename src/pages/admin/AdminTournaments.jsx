@@ -267,7 +267,9 @@ export default function AdminTournaments() {
         getCollection('teams', []),
         getCollection('matches', [])
       ]);
-      setTournaments(tournData || []);
+      // Filter out soft-deleted tournaments so they don't reappear on refresh
+      const activeTourns = (tournData || []).filter(t => !t.isDeleted && !t.deleted);
+      setTournaments(activeTourns);
       setTeams(teamsData || []);
       setMatches(matchesData || []);
 
