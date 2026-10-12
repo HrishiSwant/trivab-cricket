@@ -780,7 +780,7 @@ export default function AdminMatches() {
                 <label className="form-label">TOURNAMENT</label>
                 <select className="form-select" name="tournamentId" value={formData.tournamentId} onChange={handleInputChange}>
                   <option value="">-- General / All Tournaments --</option>
-                  {tournaments.map(t => (
+                  {tournaments.filter(t => !t.isDeleted && !t.deleted && t.isActivated !== false).map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>

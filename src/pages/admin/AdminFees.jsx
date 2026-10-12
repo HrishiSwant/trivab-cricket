@@ -49,11 +49,12 @@ export default function AdminFees() {
       setLoading(true);
       setError('');
       const tournamentsData = await getCollection('tournaments') || [];
-      setTournaments(tournamentsData);
+      const activeTournaments = tournamentsData.filter(t => !t.isDeleted && !t.deleted && t.isActivated !== false);
+      setTournaments(activeTournaments);
       
       // Select the first tournament by default if available
-      if (tournamentsData.length > 0) {
-        setSelectedTournamentId(tournamentsData[0].id);
+      if (activeTournaments.length > 0) {
+        setSelectedTournamentId(activeTournaments[0].id);
       }
       
       const teamsData = await getCollection('teams') || [];
@@ -265,7 +266,7 @@ export default function AdminFees() {
 
   return (
     <div className="admin-page container section-padding animate-fade-in">
-      <div className="page-header flex justify-between items-center mb-xl">
+      <div className="page-header fees-page-header mb-xl">
         <div>
           <h1 className="display-sm text-gradient-gold">Tournament Fees</h1>
           <p className="text-secondary">Manage and track fees status for all tournament teams</p>
@@ -306,7 +307,7 @@ export default function AdminFees() {
       )}
 
       {/* Tournament Filter Dropdown Card */}
-      <div className="card mb-xl p-lg" style={{ borderLeft: '4px solid var(--admin-gold)' }}>
+      <div className="card fees-tourn-select-card mb-xl p-lg" style={{ borderLeft: '4px solid var(--admin-gold)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <label className="form-label" style={{ fontWeight: 'bold', fontSize: '0.92rem', letterSpacing: '0.02em' }}>
             🎯 Select Tournament:
@@ -321,7 +322,7 @@ export default function AdminFees() {
             style={{ width: '100%', maxWidth: '480px' }}
           >
             <option value="">-- View All Tournaments --</option>
-            {tournaments.map(tourn => (
+            {tournaments.filter(tourn => !tourn.isDeleted && !tourn.deleted && tourn.isActivated !== false).map(tourn => (
               <option key={tourn.id} value={tourn.id}>
                 {tourn.tournamentName || tourn.name}
               </option>
@@ -484,8 +485,8 @@ export default function AdminFees() {
       )}
 
       {/* Filters & Search */}
-      <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
-        <div className="search-box" style={{ flex: 1, marginBottom: 0 }}>
+      <div className="fees-filters-row">
+        <div className="search-box">
           <Search size={18} />
           <input
             type="text"
@@ -499,7 +500,6 @@ export default function AdminFees() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="form-select"
-          style={{ width: 'auto', minWidth: '200px' }}
         >
           <option value="All">All Statuses</option>
           <option value="Paid">Paid</option>
@@ -509,8 +509,8 @@ export default function AdminFees() {
         </select>
       </div>
 
-      {/* Roster Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Desktop Table View */}
+      <div className="card fees-desktop-table" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-responsive">
           <table className="data-table">
             <thead>
@@ -604,16 +604,108 @@ export default function AdminFees() {
         </div>
       </div>
 
+      {/* Mobile Card View (<= 768px) */}
+      <div className="fees-mobile-cards">
+        {filteredData.length === 0 ? (
+          <div className="card text-center text-muted" style={{ padding: '32px' }}>
+            <Info size={24} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.5 }} />
+            No team fee records found matching your filters.
+          </div>
+        ) : (
+          filteredData.map(({ team, feeInfo }) => {
+            const balance = feeInfo 
+              ? Number(feeInfo.totalTournamentFee || 0) - Number(feeInfo.totalPaidAmount || 0)
+              : 0;
+
+            return (
+              <div key={team.id} className="fees-team-card">
+                {/* Header: Team name & Status badge */}
+                <div className="fees-card-header">
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h3 className="fees-card-title">{team.teamName}</h3>
+                    <div className="fees-card-subtitle">{team.tournamentName || 'No tournament assigned'}</div>
+                  </div>
+                  <div>
+                    {feeInfo ? (
+                      <span className={`badge ${getStatusBadgeClass(feeInfo.status)}`} style={{ whiteSpace: 'nowrap' }}>
+                        {getStatusIcon(feeInfo.status)}
+                        {feeInfo.status}
+                      </span>
+                    ) : (
+                      <span className="badge badge-outline text-muted" style={{ border: '1px dashed var(--admin-border)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                        Not Configured
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Financial Stats Grid */}
+                <div className="fees-card-stats-grid">
+                  <div className="fees-stat-item">
+                    <span className="fees-stat-label">Total Fee</span>
+                    <span className="fees-stat-val text-primary">{feeInfo ? formatCurrency(feeInfo.totalTournamentFee) : '—'}</span>
+                  </div>
+                  <div className="fees-stat-item">
+                    <span className="fees-stat-label">Paid</span>
+                    <span className="fees-stat-val text-green" style={{ color: '#22c55e' }}>{feeInfo ? formatCurrency(feeInfo.totalPaidAmount) : '—'}</span>
+                  </div>
+                  <div className="fees-stat-item">
+                    <span className="fees-stat-label">Balance</span>
+                    <span className="fees-stat-val" style={{ color: balance > 0 ? '#ef4444' : '#22c55e' }}>{feeInfo ? formatCurrency(balance) : '—'}</span>
+                  </div>
+                </div>
+
+                {/* Due Date & Last Payment */}
+                {(feeInfo?.nextDue || feeInfo?.receivingDate) && (
+                  <div className="fees-card-due-row">
+                    {feeInfo?.nextDue && (
+                      <div>
+                        <span>Next Due: </span>
+                        <strong style={{ color: 'var(--admin-text)' }}>{safeFormatDate(feeInfo.nextDue)}</strong>
+                        {feeInfo.nextDueAmount ? ` (${formatCurrency(feeInfo.nextDueAmount)})` : ''}
+                      </div>
+                    )}
+                    {feeInfo?.receivingDate && (
+                      <div>
+                        <span>Last Paid: </span>
+                        <strong style={{ color: 'var(--admin-text)' }}>{safeFormatDate(feeInfo.receivingDate)}</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="fees-card-actions">
+                  <button
+                    onClick={() => handleEditClick(team.id, feeInfo)}
+                    className="btn btn-outline btn-sm flex items-center gap-xs"
+                  >
+                    <Edit2 size={13} /> Configure
+                  </button>
+                  <button
+                    onClick={() => handleViewHistory(team)}
+                    className="btn btn-outline btn-sm flex items-center gap-xs"
+                    style={{ borderColor: '#3B82F6', color: '#60A5FA' }}
+                  >
+                    <History size={13} /> History
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {/* ── Payment History Modal ── */}
       {historyModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
         }}>
           <div style={{
             background: 'var(--admin-card-bg)', border: '1px solid var(--admin-border)',
-            borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '780px',
-            maxHeight: '88vh', overflowY: 'auto', position: 'relative'
+            borderRadius: '16px', padding: '24px 20px', width: '100%', maxWidth: '780px',
+            maxHeight: '90vh', overflowY: 'auto', position: 'relative'
           }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--admin-border)', paddingBottom: '16px' }}>

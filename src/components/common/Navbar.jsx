@@ -98,17 +98,7 @@ export default function Navbar() {
     let catDocs = [];
     let tournDocs = [];
 
-    const getParentCategoryKeys = (id) => {
-      if (!id) return [];
-      const keys = [id];
-      if (id.startsWith('baplcorporate')) keys.push('baplcorporate');
-      if (id.startsWith('baplxpress')) keys.push('baplxpress');
-      if (id.startsWith('bapldads')) keys.push('bapldads');
-      if (id.startsWith('bapl-')) keys.push('bapl');
-      if (id.startsWith('trivab-monsoon')) keys.push('trivab-monsoon');
-      if (id.startsWith('baplkids')) keys.push('baplkids');
-      return keys;
-    };
+    const defaultIds = new Set(DEFAULT_TOURNAMENTS_MENU.map(item => item.id));
 
     const processMenu = () => {
       const itemsMap = new Map();
@@ -117,16 +107,22 @@ export default function Navbar() {
       const allDocs = [...catDocs, ...tournDocs];
       allDocs.forEach(doc => {
         if (!doc) return;
-        const keys = getParentCategoryKeys(doc.id);
         if (doc.isDeleted === true || doc.deleted === true) {
-          keys.forEach(k => itemsMap.delete(k));
-        } else if (doc.isCategory || doc.isCustom) {
-          itemsMap.set(doc.id, {
-            id: doc.id,
-            label: doc.label || doc.name,
-            to: doc.to || `/tournaments/${doc.id}`,
-            logo: doc.logo || '/logos/bapllogo.jpg'
-          });
+          // Only remove from menu if it's NOT a default item
+          if (!defaultIds.has(doc.id)) {
+            itemsMap.delete(doc.id);
+          }
+        } else {
+          // Include any active/activated doc — category, custom, or standard tournament
+          const isActive = doc.isActivated !== false;
+          if (isActive) {
+            itemsMap.set(doc.id, {
+              id: doc.id,
+              label: doc.label || doc.name,
+              to: doc.to || `/tournaments/${doc.id}`,
+              logo: doc.logo || '/logos/bapllogo.jpg'
+            });
+          }
         }
       });
 
