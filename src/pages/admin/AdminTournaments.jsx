@@ -475,38 +475,34 @@ export default function AdminTournaments() {
     if (!window.confirm(`Are you sure you want to delete "${name || id}"? This will permanently remove it from the Navbar menu, tournament listings, and database.`)) return;
     
     try {
-      const keysToDelete = [id];
-      if (id.startsWith('baplcorporate')) keysToDelete.push('baplcorporate');
-      if (id.startsWith('baplxpress')) keysToDelete.push('baplxpress');
-      if (id.startsWith('bapldads')) keysToDelete.push('bapldads');
-      if (id.startsWith('bapl-')) keysToDelete.push('bapl');
-      if (id.startsWith('trivab-monsoon')) keysToDelete.push('trivab-monsoon');
-      if (id.startsWith('baplkids')) keysToDelete.push('baplkids');
+      // Mark deleted in tournaments collection
+      try { await deleteDocument('tournaments', id); } catch (e) {}
+      try {
+        await setDocument('tournaments', id, {
+          id: id,
+          isDeleted: true,
+          deleted: true,
+          isActivated: false,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {}
 
-      for (const key of keysToDelete) {
-        try { await deleteDocument('tournaments', key); } catch (e) {}
-        try {
-          await setDocument('tournamentCategories', key, {
-            id: key,
-            isDeleted: true,
-            deleted: true,
-            updatedAt: new Date().toISOString()
-          });
-        } catch (e) {}
-        try {
-          await setDocument('tournaments', key, {
-            id: key,
-            isDeleted: true,
-            deleted: true,
-            isActivated: false,
-            updatedAt: new Date().toISOString()
-          });
-        } catch (e) {}
-      }
+      // Mark deleted in tournamentCategories — try delete first, then mark isDeleted as fallback
+      // This ensures the Navbar's real-time subscription (subscribeCollection on tournamentCategories)
+      // always picks up the change.
+      try { await deleteDocument('tournamentCategories', id); } catch (e) {}
+      try {
+        await setDocument('tournamentCategories', id, {
+          id: id,
+          isDeleted: true,
+          deleted: true,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {}
 
       setDeletedIds(prev => {
         const next = new Set(prev);
-        keysToDelete.forEach(k => next.add(k));
+        next.add(id);
         return next;
       });
 

@@ -166,22 +166,34 @@ export default function TournamentTypeDetails() {
         getCollection('tournaments')
       ]);
 
-      const activeTournIds = new Set(dbTournaments.filter(t => t.isActivated !== false).map(t => t.id));
+      // Build a lookup map for tournament docs (id → doc)
+      const tournMap = {};
+      dbTournaments.forEach(t => { tournMap[t.id] = t; });
+
+      const activeTournIds = new Set(dbTournaments.filter(t => !t.isDeleted && !t.deleted && t.isActivated !== false).map(t => t.id));
 
       const statsMap = {};
       editionIds.forEach(id => {
         const teams = allTeams.filter(t => t.tournamentId === id);
         const matches = allMatches.filter(m => m.tournamentId === id);
-        
-        let status = 'Upcoming';
+        const dbTourn = tournMap[id];
+
+        let status;
         if (!activeTournIds.has(id)) {
+          // Not activated / deleted → Inactive
           status = 'Inactive';
+        } else if (dbTourn && dbTourn.status && dbTourn.status !== 'Upcoming') {
+          // Admin explicitly set a status — always respect it
+          status = dbTourn.status;
         } else if (matches.some(m => m.status === 'Live')) {
           status = 'Live';
         } else if (matches.some(m => m.status === 'Completed')) {
           status = 'Completed';
         } else if (matches.length > 0) {
           status = 'Active';
+        } else {
+          // Default: use admin-set status (Upcoming) or fall back
+          status = (dbTourn && dbTourn.status) ? dbTourn.status : 'Upcoming';
         }
 
         statsMap[id] = {
