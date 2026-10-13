@@ -47,21 +47,16 @@ export default function Home() {
     const fetchHomeData = async () => {
       try {
         const tourn = await getCollection('tournaments');
-        const activeTourns = tourn || [];
+        const activeTourns = (tourn || []).filter(
+          t => t && !t.isDeleted && !t.deleted && t.isActivated !== false && t.name
+        );
         setRecentTournaments(diversifyTournaments(activeTourns).slice(0, 3));
         const matches = await getCollection('matches', [limit(3)]);
-        setUpcomingMatches(matches);
+        setUpcomingMatches(matches || []);
       } catch (e) {
-        console.log('Using default landing page items due to db config');
-        setRecentTournaments([
-          { id: 't1', name: 'Champions Cup 2026', status: 'Live', description: 'Elite T20 faceoff' },
-          { id: 't2', name: 'Under-25 Premier League', status: 'Upcoming', description: 'Next-gen talent show' },
-          { id: 't3', name: 'Corporate Shield Trophy', status: 'Completed', description: 'Corporate cricket showdown' },
-        ]);
-        setUpcomingMatches([
-          { id: 'm1', teamA: 'Mumbai Knights', teamB: 'Delhi Dynamos', date: '31st May 2026', time: '18:30 IST', venue: 'Wankhede Stadium', status: 'Upcoming' },
-          { id: 'm2', teamA: 'Chennai Super Kings', teamB: 'Kolkata Warriors', date: '1st June 2026', time: '16:00 IST', venue: 'Chepauk Stadium', status: 'Upcoming' }
-        ]);
+        console.log('Error fetching home data, no items to show');
+        setRecentTournaments([]);
+        setUpcomingMatches([]);
       }
     };
     fetchHomeData();
@@ -497,44 +492,46 @@ export default function Home() {
       {/* ================================================================
           TOURNAMENTS GRID — Preserved
           ================================================================ */}
-      <section className="recent-tournaments-section container section-padding">
-        <div className="section-header">
-          <span className="section-label">Tournaments</span>
-          <h2 className="section-title">Active Tournaments</h2>
-          <p className="section-subtitle">Stay updated with our ongoing and upcoming tournaments.</p>
-        </div>
+      {recentTournaments.length > 0 && (
+        <section className="recent-tournaments-section container section-padding">
+          <div className="section-header">
+            <span className="section-label">Tournaments</span>
+            <h2 className="section-title">Active Tournaments</h2>
+            <p className="section-subtitle">Stay updated with our ongoing and upcoming tournaments.</p>
+          </div>
 
-        <motion.div
-          className="grid grid-3 gap-lg"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.15 }}
-          variants={containerVariants}
-        >
-          {recentTournaments.map((t) => (
-            <motion.div className="card tournament-summary-card" key={t.id} variants={fadeInUp} whileHover={{ y: -8 }}>
-              <div className="flex justify-between items-start mb-sm">
-                <span className={`badge ${t.status === 'Live' ? 'badge-red' : t.status === 'Upcoming' ? 'badge-gold' : 'badge-green'}`}>
-                  {t.status}
-                </span>
-              </div>
-              <h3 className="text-lg font-bold mb-xs">{t.name}</h3>
-              <p className="text-muted text-sm mb-md">{t.description}</p>
-              <Link to={`/tournaments/${t.id}`} className="btn btn-navy btn-sm" style={{ width: '100%' }}>
-                Tournament Details
+          <motion.div
+            className="grid grid-3 gap-lg"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+            variants={containerVariants}
+          >
+            {recentTournaments.map((t) => (
+              <motion.div className="card tournament-summary-card" key={t.id} variants={fadeInUp} whileHover={{ y: -8 }}>
+                <div className="flex justify-between items-start mb-sm">
+                  <span className={`badge ${t.status === 'Live' ? 'badge-red' : t.status === 'Upcoming' ? 'badge-gold' : 'badge-green'}`}>
+                    {t.status}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mb-xs">{t.name}</h3>
+                <p className="text-muted text-sm mb-md">{t.description}</p>
+                <Link to={`/tournaments/${t.id}`} className="btn btn-navy btn-sm" style={{ width: '100%' }}>
+                  Tournament Details
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="flex justify-center mt-xl">
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+              <Link to="/tournaments" className="btn btn-outline btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                View All Tournaments <ArrowRight size={18} />
               </Link>
             </motion.div>
-          ))}
-        </motion.div>
-
-        <div className="flex justify-center mt-xl">
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-            <Link to="/tournaments" className="btn btn-outline btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              View All Tournaments <ArrowRight size={18} />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* ================================================================
           6. CONVERSION FOOTER

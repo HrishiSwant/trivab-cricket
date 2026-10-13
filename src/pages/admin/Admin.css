@@ -1722,3 +1722,185 @@
   display: none !important;
 }
 
+/* ============================================================
+   ADMIN TOURNAMENT FEES RESPONSIVE STYLES
+   ============================================================ */
+.fees-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.fees-filters-row {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.fees-filters-row .search-box {
+  flex: 1;
+  min-width: 220px;
+  margin-bottom: 0;
+}
+
+.fees-filters-row .form-select {
+  width: auto;
+  min-width: 200px;
+}
+
+.fees-desktop-table {
+  display: block;
+}
+
+.fees-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .fees-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .fees-page-header .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 16px;
+    font-size: 0.88rem;
+  }
+
+  .fees-tourn-select-card {
+    padding: 14px 16px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .fees-filters-row {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .fees-filters-row .search-box {
+    width: 100%;
+    flex: none;
+  }
+
+  .fees-filters-row .form-select {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .fees-desktop-table {
+    display: none !important;
+  }
+
+  .fees-mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .fees-team-card {
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .fees-team-card:active {
+    transform: scale(0.99);
+  }
+
+  .fees-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    border-bottom: 1px solid var(--admin-border);
+    padding-bottom: 10px;
+  }
+
+  .fees-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--admin-text);
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .fees-card-subtitle {
+    font-size: 0.78rem;
+    color: var(--admin-muted);
+    margin-top: 3px;
+  }
+
+  .fees-card-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 12px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border);
+    text-align: center;
+  }
+
+  .fees-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fees-stat-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-muted);
+    margin-bottom: 4px;
+  }
+
+  .fees-stat-val {
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .fees-card-due-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    color: var(--admin-muted);
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.015);
+    border-radius: 8px;
+    border: 1px dashed var(--admin-border);
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .fees-card-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .fees-card-actions .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 0.82rem;
+  }
+}
+
+

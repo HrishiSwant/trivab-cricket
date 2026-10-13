@@ -93,45 +93,39 @@ export default function TournamentList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTournaments = async () => {
-      try {
-        const list = await getCollection('tournaments', [orderBy('createdAt', 'desc')]);
-        setTournaments((list || []).filter(t => t.isActivated !== false));
-      } catch (err) {
-        console.log('Using database fallback for tournaments');
-        setTournaments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTournaments();
-
     let catDocs = [];
     let tournDocs = [];
-
-    const getParentCategoryKeys = (id) => {
-      if (!id) return [];
-      const keys = [id];
-      if (id.startsWith('baplcorporate')) keys.push('baplcorporate');
-      if (id.startsWith('baplxpress')) keys.push('baplxpress');
-      if (id.startsWith('bapldads')) keys.push('bapldads');
-      if (id.startsWith('bapl-')) keys.push('bapl');
-      if (id.startsWith('trivab-monsoon')) keys.push('trivab-monsoon');
-      if (id.startsWith('baplkids')) keys.push('baplkids');
-      return keys;
-    };
 
     const processCategories = () => {
       const itemsMap = new Map();
       TRIVAB_TOURNAMENT_CATEGORIES.forEach(cat => itemsMap.set(cat.id, cat));
 
-      const allDocs = [...catDocs, ...tournDocs];
-      allDocs.forEach(doc => {
+      // 1. Process category docs from tournamentCategories
+      catDocs.forEach(doc => {
         if (!doc) return;
-        const keys = getParentCategoryKeys(doc.id);
         if (doc.isDeleted === true || doc.deleted === true) {
-          keys.forEach(k => itemsMap.delete(k));
+          itemsMap.delete(doc.id);
         } else if (doc.isCategory || doc.isCustom) {
+          itemsMap.set(doc.id, {
+            id: doc.id,
+            name: doc.name || doc.label,
+            logo: doc.logo || '/logos/bapllogo.jpg',
+            description: doc.description || '',
+            to: doc.to || `/tournaments/${doc.id}`,
+            badge: doc.badge || 'Tournament'
+          });
+        }
+      });
+
+      // 2. Only if an entire category doc in tournaments was marked deleted (e.g. custom category)
+      tournDocs.forEach(doc => {
+        if (!doc) return;
+        if (doc.isDeleted === true || doc.deleted === true) {
+          // If a category doc itself was deleted
+          if (itemsMap.has(doc.id)) {
+            itemsMap.delete(doc.id);
+          }
+        } else if (doc.isCustom) {
           itemsMap.set(doc.id, {
             id: doc.id,
             name: doc.name || doc.label,
@@ -155,11 +149,25 @@ export default function TournamentList() {
     } catch (e) {}
 
     try {
-      unsubTourn = subscribeCollection('tournaments', [], (docs) => {
+      unsubTourn = subscribeCollection('tournaments', [orderBy('createdAt', 'desc')], (docs) => {
         tournDocs = docs || [];
+        // Filter out deleted and unactivated tournaments so their cards are completely removed
+        const activeList = (docs || []).filter(
+          t => t && !t.isDeleted && !t.deleted && t.isActivated !== false && t.name
+        );
+        setTournaments(activeList);
+        setLoading(false);
         processCategories();
       });
-    } catch (e) {}
+    } catch (e) {
+      // Fallback one-time fetch if subscription fails
+      getCollection('tournaments', [orderBy('createdAt', 'desc')])
+        .then(list => {
+          setTournaments((list || []).filter(t => t && !t.isDeleted && !t.deleted && t.isActivated !== false));
+        })
+        .catch(() => setTournaments([]))
+        .finally(() => setLoading(false));
+    }
 
     return () => {
       if (unsubCat) unsubCat();

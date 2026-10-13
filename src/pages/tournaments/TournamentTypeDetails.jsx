@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getCollection } from '../../firebase/firestore';
+import { getCollection, subscribeCollection } from '../../firebase/firestore';
 import { Trophy, Calendar, Users, MapPin, ArrowRight, ChevronRight } from 'lucide-react';
 import Loader from '../../components/common/Loader';
 import SEO from '../../components/common/SEO';
@@ -146,6 +146,8 @@ export default function TournamentTypeDetails() {
   const [editionStats, setEditionStats] = useState({});
   const [loading, setLoading] = useState(true);
 
+  const [deletedEditionIds, setDeletedEditionIds] = useState(new Set());
+
   useEffect(() => {
     const data = PARENT_TOURNAMENTS[typeId];
     if (!data) {
@@ -153,37 +155,41 @@ export default function TournamentTypeDetails() {
       return;
     }
     setParentData(data);
-    fetchStats(data);
-  }, [typeId, navigate]);
 
-  const fetchStats = async (currentParent) => {
-    try {
-      const editionIds = currentParent.editions.map(e => e.id);
-      
-      const [allTeams, allMatches, dbTournaments] = await Promise.all([
-        getCollection('teams'),
-        getCollection('matches'),
-        getCollection('tournaments')
-      ]);
+    let isMounted = true;
+    let unsubTourn, unsubTeams, unsubMatches;
 
-      // Build a lookup map for tournament docs (id → doc)
+    const syncStats = async (dbTournaments, allTeams, allMatches) => {
+      const editionIds = data.editions.map(e => e.id);
       const tournMap = {};
-      dbTournaments.forEach(t => { tournMap[t.id] = t; });
+      (dbTournaments || []).forEach(t => { tournMap[t.id] = t; });
 
-      const activeTournIds = new Set(dbTournaments.filter(t => !t.isDeleted && !t.deleted && t.isActivated !== false).map(t => t.id));
+      const deletedSet = new Set();
+      (dbTournaments || []).forEach(t => {
+        if (t && (t.isDeleted === true || t.deleted === true)) {
+          deletedSet.add(t.id);
+        }
+      });
+      if (isMounted) {
+        setDeletedEditionIds(deletedSet);
+      }
+
+      const activeTournIds = new Set(
+        (dbTournaments || [])
+          .filter(t => t && !t.isDeleted && !t.deleted && t.isActivated !== false)
+          .map(t => t.id)
+      );
 
       const statsMap = {};
       editionIds.forEach(id => {
-        const teams = allTeams.filter(t => t.tournamentId === id);
-        const matches = allMatches.filter(m => m.tournamentId === id);
+        const teams = (allTeams || []).filter(t => t.tournamentId === id);
+        const matches = (allMatches || []).filter(m => m.tournamentId === id);
         const dbTourn = tournMap[id];
 
         let status;
         if (!activeTournIds.has(id)) {
-          // Not activated / deleted → Inactive
           status = 'Inactive';
         } else if (dbTourn && dbTourn.status) {
-          // Admin explicitly set a status — ALWAYS respect it, no override
           status = dbTourn.status;
         } else if (matches.some(m => m.status === 'Live')) {
           status = 'Live';
@@ -203,13 +209,45 @@ export default function TournamentTypeDetails() {
         };
       });
 
-      setEditionStats(statsMap);
-    } catch (err) {
+      if (isMounted) {
+        setEditionStats(statsMap);
+        setLoading(false);
+      }
+    };
+
+    // Initial fetch and subscribe
+    Promise.all([
+      getCollection('teams'),
+      getCollection('matches'),
+      getCollection('tournaments')
+    ]).then(([teams, matches, tournaments]) => {
+      if (isMounted) {
+        syncStats(tournaments, teams, matches);
+      }
+    }).catch(err => {
       console.error('Error fetching parent stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (isMounted) setLoading(false);
+    });
+
+    try {
+      unsubTourn = subscribeCollection('tournaments', [], async (tournaments) => {
+        try {
+          const [teams, matches] = await Promise.all([
+            getCollection('teams'),
+            getCollection('matches')
+          ]);
+          if (isMounted) {
+            syncStats(tournaments, teams, matches);
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
+
+    return () => {
+      isMounted = false;
+      if (unsubTourn) unsubTourn();
+    };
+  }, [typeId, navigate]);
 
   const isCorporateCategory = typeId === 'baplcorporate';
 
@@ -310,7 +348,7 @@ export default function TournamentTypeDetails() {
 
       {/* Edition Grid */}
       <div className="edition-grid">
-        {parentData.editions.map((edition) => {
+        {parentData.editions.filter(edition => !deletedEditionIds.has(edition.id)).map((edition) => {
           const stats = editionStats[edition.id] || { teamCount: 0, matchCount: 0, status: 'Inactive', isActivated: false };
           const isComingSoon = edition.comingSoon === true;
           

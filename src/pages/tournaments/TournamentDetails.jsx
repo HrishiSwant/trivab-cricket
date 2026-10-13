@@ -392,7 +392,9 @@ export default function TournamentDetails() {
         const fallback = PREDEFINED_TOURNAMENTS.find(p => p.id === id);
         let isActivated = Boolean(tourn && tourn.isActivated === true);
         
-        if (!tourn) {
+        if (tourn && (tourn.isDeleted === true || tourn.deleted === true)) {
+          tourn = null;
+        } else if (!tourn) {
           isActivated = false;
           if (fallback) {
             tourn = {
