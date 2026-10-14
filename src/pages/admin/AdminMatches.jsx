@@ -117,9 +117,45 @@ export const formatDateForInput = (dateStr) => {
   return new Date().toISOString().split('T')[0];
 };
 
+export const getMatchDateYMD = (dateStr) => {
+  if (!dateStr) return '';
+
+  if (typeof dateStr === 'object' && dateStr?.seconds) {
+    const d = new Date(dateStr.seconds * 1000);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  const str = String(dateStr).trim();
+  const ymdMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymdMatch) {
+    return `${ymdMatch[1]}-${ymdMatch[2]}-${ymdMatch[3]}`;
+  }
+
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const day = String(dmyMatch[1]).padStart(2, '0');
+    const month = String(dmyMatch[2]).padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return '';
+};
+
 export const getMatchMonthYear = (dateStr) => {
   if (!dateStr) return '';
-  const inputDateStr = formatDateForInput(dateStr);
+  const inputDateStr = getMatchDateYMD(dateStr);
   if (!inputDateStr) return '';
   const parts = inputDateStr.split('-');
   if (parts.length === 3) {
@@ -144,6 +180,8 @@ export default function AdminMatches() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [detailFilter, setDetailFilter] = useState('All');
   const [detailFilterValue, setDetailFilterValue] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
@@ -361,21 +399,40 @@ export default function AdminMatches() {
     const matchesStatus = statusFilter === 'All' || m.status === statusFilter;
     const tournament = tournaments.find(t => t.id === getStringVal(m.tournamentId) || t.name === getStringVal(m.tournamentId));
     const filterValue = detailFilterValue.toLowerCase();
-    const matchesDetail = detailFilter === 'All' || !detailFilterValue || (
-      detailFilter === 'Date'
-        ? formatDateForInput(m.date) === detailFilterValue
-        : detailFilter === 'Month'
-          ? (
-              formatDateForInput(m.date).startsWith(detailFilterValue) ||
-              getMatchMonthYear(m.date) === detailFilterValue ||
-              getMatchMonthYear(m.date).toLowerCase().includes(filterValue)
-            )
-          : detailFilter === 'Team'
-            ? [m.teamA, m.teamB, m.targetTeamName].some(team => getStringVal(team).toLowerCase().includes(filterValue))
-            : detailFilter === 'Tournament'
-              ? getStringVal(m.tournamentId).toLowerCase() === filterValue || getStringVal(tournament?.name).toLowerCase() === filterValue
-              : getStringVal(m.venue).toLowerCase().includes(filterValue)
-    );
+
+    let matchesDetail = true;
+    if (detailFilter === 'Date') {
+      if (dateFrom || dateTo) {
+        const matchDate = getMatchDateYMD(m.date);
+        if (!matchDate) {
+          matchesDetail = false;
+        } else {
+          if (dateFrom && dateTo) {
+            const minDate = dateFrom <= dateTo ? dateFrom : dateTo;
+            const maxDate = dateFrom <= dateTo ? dateTo : dateFrom;
+            matchesDetail = matchDate >= minDate && matchDate <= maxDate;
+          } else if (dateFrom) {
+            matchesDetail = matchDate >= dateFrom;
+          } else if (dateTo) {
+            matchesDetail = matchDate <= dateTo;
+          }
+        }
+      } else {
+        matchesDetail = true;
+      }
+    } else if (detailFilter === 'Month') {
+      matchesDetail = !detailFilterValue || (
+        formatDateForInput(m.date).startsWith(detailFilterValue) ||
+        getMatchMonthYear(m.date) === detailFilterValue ||
+        getMatchMonthYear(m.date).toLowerCase().includes(filterValue)
+      );
+    } else if (detailFilter === 'Team') {
+      matchesDetail = !detailFilterValue || [m.teamA, m.teamB, m.targetTeamName].some(team => getStringVal(team).toLowerCase().includes(filterValue));
+    } else if (detailFilter === 'Tournament') {
+      matchesDetail = !detailFilterValue || getStringVal(m.tournamentId).toLowerCase() === filterValue || getStringVal(tournament?.name).toLowerCase() === filterValue;
+    } else if (detailFilter === 'Ground') {
+      matchesDetail = !detailFilterValue || getStringVal(m.venue).toLowerCase().includes(filterValue);
+    }
 
     return matchesSearch && matchesStatus && matchesDetail;
   });
@@ -431,7 +488,17 @@ export default function AdminMatches() {
     filterSummary += ` | Total Matches: ${filteredMatches.length}`;
     if (searchTerm) filterSummary += ` | Search: "${searchTerm}"`;
     if (statusFilter !== 'All') filterSummary += ` | Status: ${statusFilter}`;
-    if (detailFilter !== 'All' && detailFilterValue) filterSummary += ` | ${detailFilter}: ${detailFilterValue}`;
+    if (detailFilter === 'Date') {
+      if (dateFrom && dateTo) {
+        filterSummary += ` | Date Range: ${formatDateSafe(dateFrom)} to ${formatDateSafe(dateTo)}`;
+      } else if (dateFrom) {
+        filterSummary += ` | Date From: ${formatDateSafe(dateFrom)}`;
+      } else if (dateTo) {
+        filterSummary += ` | Date Up To: ${formatDateSafe(dateTo)}`;
+      }
+    } else if (detailFilter !== 'All' && detailFilterValue) {
+      filterSummary += ` | ${detailFilter}: ${detailFilterValue}`;
+    }
 
     doc.text(filterSummary, margin, 20);
 
@@ -622,12 +689,14 @@ export default function AdminMatches() {
           onChange={(e) => {
             setDetailFilter(e.target.value);
             setDetailFilterValue('');
+            setDateFrom('');
+            setDateTo('');
           }}
           aria-label="Filter matches by"
           style={{ minWidth: '150px', width: 'auto' }}
         >
           <option value="All">Filter: All</option>
-          <option value="Date">Filter: Date</option>
+          <option value="Date">Filter: Date Range</option>
           <option value="Month">Filter: Month</option>
           <option value="Team">Filter: Team</option>
           <option value="Tournament">Filter: Tournament</option>
@@ -635,14 +704,56 @@ export default function AdminMatches() {
         </select>
 
         {detailFilter !== 'All' && detailFilter === 'Date' && (
-          <input
-            className="form-input"
-            type="date"
-            value={detailFilterValue}
-            onChange={(e) => setDetailFilterValue(e.target.value)}
-            aria-label="Select match date"
-            style={{ width: 'auto' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--admin-muted)', fontWeight: 500 }}>From:</span>
+              <input
+                className="form-input"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Filter matches from date"
+                style={{ width: 'auto' }}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--admin-muted)', fontWeight: 500 }}>To:</span>
+              <input
+                className="form-input"
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Filter matches to date"
+                style={{ width: 'auto' }}
+              />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="btn btn-outline"
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '0.75rem',
+                  lineHeight: 1,
+                  border: '1px solid var(--admin-border)',
+                  color: 'var(--admin-muted)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Clear date range filter"
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </div>
         )}
 
         {detailFilter !== 'All' && detailFilter === 'Month' && (
