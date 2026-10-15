@@ -17,6 +17,7 @@ export default function CaptainDashboard() {
   const [loading, setLoading] = useState(true);
   const [teamFees, setTeamFees] = useState(null);
   const [paymentHistory, setPaymentHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [schedules, setSchedules] = useState([]);
@@ -926,7 +927,6 @@ export default function CaptainDashboard() {
 
           {/* Payment History Section */}
           {team && paymentHistory.length > 0 && (() => {
-            const [showHistory, setShowHistory] = useState(false);
             const formatCurrencyH = (val) => {
               if (!val || isNaN(val)) return '₹0';
               return `₹${Number(val).toLocaleString('en-IN')}`;
